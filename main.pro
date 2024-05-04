@@ -297,17 +297,16 @@ consume_food_at_location(State, AgentId, X, Y, NewState) :-
     NewState = [NewAgentsDict, NewObjectsDict, Time, TurnOrder]
   );
   % Check if there is an agent at the given location
-  (get_dict(EatenAgentId, AgentsDict, Agent), Agent = agents{children:_, energy_point:_, subtype:Subtype, type:_, x:X, y:Y} -> 
+  (get_dict(EatenAgentId, AgentsDict, EatenAgent), EatenAgent = agents{children:_, energy_point:_, subtype:EatenSubtype, type:_, x:X, y:Y} -> 
   (
     % Update the state by deleting the agent
     del_dict(EatenAgentId, AgentsDict, _, NewAgentsDict),
     % Increase the energy point of agent
-    energy_point(Subtype, NewEnergy),
+    energy_point(EatenSubtype, NewEnergy),
     NewEnergyPoint is EnergyPoint + NewEnergy,
     put_dict(AgentId, NewAgentsDict, agents{children:Children, energy_point:NewEnergyPoint, subtype:AgentSubtype, type:Type, x:AgentX, y:AgentY}, FinalAgentsDict),
     NewState = [FinalAgentsDict, ObjectsDict, Time, TurnOrder]
-  );
-  NewState = State)).
+  ))).
 
 % Predicate for increasing agent's number of children if have enough energy point
 increase_children(State, AgentId, NewState) :-
