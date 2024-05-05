@@ -60,9 +60,6 @@ agent_at_coordinates(AgentsDict, X, Y, Agent) :-
 agent_at_coordinates(AgentsDict, X, Y) :-
   agent_at_coordinates(AgentsDict, X, Y, agents{children:_, energy_point:_, subtype:_, type:_, x:X, y:Y}).
 
-%Predicate for checking if the given coordinate does not contain any wolf
-no_wolf_at_coordinates(AgentsDict, X, Y) :-
-  \+ agent_at_coordinates(AgentsDict, X, Y, agents{children:_, energy_point:_, subtype:wolf, type:_, x:X, y:Y}).
 
 %Predicate for finding the subtype of agent at given coordinates
 agent_subtype_at_coordinates(AgentDict, X, Y, Subtype) :-
@@ -80,6 +77,18 @@ update_state_after_move(State, AgentId, Move, NewState) :-
   % Without checking the leaglity of move just create the new state by updating agents dictionary
   put_dict(AgentId, AgentsDict, agents{children:Children, energy_point:EnergyPoint, subtype:Subtype, type:Type, x:NewX, y:NewY}, NewAgentsDict),
   NewState = [NewAgentsDict, ObjectsDict, Time, TurnOrder].
+
+% Custom predicate pairs_values that extracts values from a list of pairs
+custom_pairs_values(Pairs, Values) :-
+  custom_pairs_values(Pairs, [], Values).
+
+custom_pairs_values([], Values, Values).
+
+custom_pairs_values([HeadPair | TailPairs], AccumulatedValues, Values) :-
+  HeadPair = _ - Value,
+  append(AccumulatedValues, [Value], NewAccumulatedValues),
+  custom_pairs_values(TailPairs, NewAccumulatedValues, Values).
+
 
 % Project Predicates
 
@@ -110,7 +119,7 @@ value_of_farm(State, Value) :-
 agent_dict_values(AgentDict, Values) :-
   dict_pairs(AgentDict, _, AgentsPairs),
   pairs_values(AgentsPairs, AgentsValues),
-   maplist(calculate_agent_value, AgentsValues, Values).
+  maplist(calculate_agent_value, AgentsValues, Values).
 
 object_dict_values(ObjectsDict, Values) :-
   dict_pairs(ObjectsDict, _, ObjectPairs),
@@ -371,7 +380,6 @@ consume_all_helper(State, AgentId, NumberOfMoves, CurNumberOfMoves, Value, Numbe
     ( Coordinates = [X, Y],
       move_to_coordinate(State, AgentId, X, Y, ActionList, DepthLimit) -> 
       (
-        print(123),
         print(ActionList),
         list_length(ActionList, ActionListLength),
         NewCurNumberOfMoves is CurNumberOfMoves + ActionListLength,
@@ -382,7 +390,6 @@ consume_all_helper(State, AgentId, NumberOfMoves, CurNumberOfMoves, Value, Numbe
         consume_all_helper(StateAfterMerge, AgentId, NumberOfMoves, NewCurNumberOfMoves, Value, NumberOfChildren, DepthLimit, _{}, _{}, FinalState)
       );
       (
-        print(999),
         Coordinates = [X, Y],
         add_agent_or_object(State, X, Y, TempAgentsDict, TempObjectsDict, NewTempAgentsDict, NewTempObjectsDict),
         remove_agent_or_object(State, X, Y, StateAfterRemove),
