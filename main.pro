@@ -1,5 +1,5 @@
-% name surname
-% id
+% hikmet can koseoglu
+% 2021400216
 % compiling: yes
 % complete: yes
 
@@ -11,12 +11,13 @@
 
 % Predicate for finding the length of a list
 % Base case: an empty list has length 0
-list_length([], 0).
+len_of_list([], 0).
 
 % Recursive case: the length of a list is 1 plus the length of its tail
-list_length([_|Tail], Length) :-
-    list_length(Tail, TailLength),
+len_of_list([_|Tail], Length) :-
+    len_of_list(Tail, TailLength),
     Length is TailLength + 1.
+
 
 % Predicate for reversing a list
 % Base case: the reverse of an empty list is an empty list
@@ -38,12 +39,52 @@ concat_lists([Head|Tail1], List2, [Head|Result]) :-
 % Get the number of elements in an agent_dict
 agent_dict_length(AgentDict, Length) :-
   dict_pairs(AgentDict, _, Pairs),
-  list_length(Pairs, Length).
+  len_of_list(Pairs, Length).
 
+% Predicate for sorting an unsorted integer list
+% Base case: an empty list is already sorted
+sort_list([], []).
+% Recursive case: the sorted list is the sorted tail of the list with the head inserted at the correct position
+sort_list([Head|Tail], Sorted) :-
+  sort_list(Tail, SortedTail),
+  insert_sorted(Head, SortedTail, Sorted),
+  !.
+
+% Predicate for inserting an element into a sorted list
+% Base case: inserting an element into an empty list results in a list with that element
+insert_sorted(Element, [], [Element]).
+% Recursive case: if the element is less than the head of the list, insert it at the head
+insert_sorted(Element, [Head|Tail], [Element, Head|Tail]) :-
+  Element =< Head.
+% Recursive case: if the element is greater than the head of the list, insert it in the tail
+insert_sorted(Element, [Head|Tail], [Head|NewTail]) :-
+  Element > Head,
+  insert_sorted(Element, Tail, NewTail).
+
+% Predicate for getting an element at a specific index in a list
+% Base case: the element at index 0 is the head of the list
+element_at_index([Head|_], 0, Head) :- !.
+% Recursive case: the element at index N is the element at index N-1 of the tail
+element_at_index([_|Tail], Index, Element) :-
+  NewIndex is Index - 1,
+  element_at_index(Tail, NewIndex, Element).
+
+% Predicate for finding the index of given element in a list
+% Base case: the index of the element in the head of the list is 0
+index_of_element([Element|_], 0, Element) :- !.
+% Recursive case: if the element is not the head of the list, the index is 1 plus the index of the element in the tail
+index_of_element([_|Tail], Index, Element) :-
+  index_of_element(Tail, NewIndex, Element),
+  Index is NewIndex + 1.
+
+
+% Predicate for finding the minimum element inside a list
+least_element(List, Min) :-
+  sort_list(List, Sorted), element_at_index(Sorted, 0, Min).
 
 % Predicate for finding the second least element inside a list
-second_min_list(List, SecondMin) :-
-  sort(List, Sorted), nth0(1, Sorted, SecondMin).
+second_least_element(List, SecondMin) :-
+  sort_list(List, Sorted), element_at_index(Sorted, 1, SecondMin).
 
 %Predicate for finding the distance between an agent and object
 agent_object_distance(Agent, Object, Distance) :-
@@ -52,7 +93,7 @@ agent_object_distance(Agent, Object, Distance) :-
 %Predicate for finding if there is any agent at given coordinates
 agent_at_coordinates(AgentsDict, X, Y, Agent) :-
   dict_pairs(AgentsDict, _, AgentPairs),
-  pairs_values(AgentPairs, AgentsValues),
+  custom_pairs_values(AgentPairs, AgentsValues),
   member(Agent, AgentsValues),
   Agent = agents{children:_, energy_point:_, subtype:_, type:_, x:X, y:Y}.
 
@@ -64,7 +105,7 @@ agent_at_coordinates(AgentsDict, X, Y) :-
 %Predicate for finding the subtype of agent at given coordinates
 agent_subtype_at_coordinates(AgentDict, X, Y, Subtype) :-
   dict_pairs(AgentDict, _, AgentPairs),
-  pairs_values(AgentPairs, AgentsValues),
+  custom_pairs_values(AgentPairs, AgentsValues),
   member(Agent, AgentsValues),
   Agent = agents{children:_, energy_point:_, subtype:Subtype, type:_, x:X, y:Y}.
 
@@ -86,13 +127,19 @@ custom_pairs_values([], Values, Values).
 
 custom_pairs_values([HeadPair | TailPairs], AccumulatedValues, Values) :-
   HeadPair = _ - Value,
-  append(AccumulatedValues, [Value], NewAccumulatedValues),
+  concat_lists(AccumulatedValues, [Value], NewAccumulatedValues),
   custom_pairs_values(TailPairs, NewAccumulatedValues, Values).
 
+% Predicate for summing the elements of a list
+sum_elements([], 0).
+sum_elements([Head|Tail], Sum) :-
+  sum_elements(Tail, TailSum),
+  Sum is Head + TailSum.
 
 % Project Predicates
 
 % 1- agents_distance(+Agent1, +Agent2, -Distance)
+% state(Agents, _, _, _), agents_distance(Agents.0, Agents.1, Distance)
 agents_distance(Agent1, Agent2, Distance) :-
   Distance is abs(Agent1.x - Agent2.x) + abs(Agent1.y - Agent2.y).
 
@@ -101,38 +148,31 @@ agents_distance(Agent1, Agent2, Distance) :-
 
 number_of_agents(State, NumberOfAgents) :- 
   State = [AgentsDict, _, _, _],
-  dict_keys(AgentsDict, Ids),   
-  list_length(Ids, NumberOfAgents).
+  dict_pairs(AgentsDict, _,Pairs),   
+  len_of_list(Pairs, NumberOfAgents).
 
 % 3- value_of_farm(+State, -Value)
 % state(Agents, Objects, Time, TurnOrder), State=[Agents, Objects, Time, TurnOrder], value_of_farm(State, Value).
 
 value_of_farm(State, Value) :-
   State = [AgentsDict, ObjectsDict, _, _],
-  agent_dict_values(AgentsDict, AgentValues),
-  object_dict_values(ObjectsDict, ObjectValues),
-  sum_list(AgentValues, AgentValueSum),
-  sum_list(ObjectValues, ObjectValueSum),
+  findall(AgentValue,
+          (
+            get_dict(_, AgentsDict, Agent),
+            Agent = agents{children:_, energy_point:_, subtype:Subtype, type:_, x:_, y:_},
+            (Subtype = wolf -> AgentValue = 0; value(Subtype, AgentValue))
+          ),
+          AgentValues),
+  findall(ObjectValue,
+          (
+            get_dict(_, ObjectsDict, Object),
+            Object = object{subtype:Subtype, type:_, x:_, y:_},
+            value(Subtype, ObjectValue)
+          ),
+          ObjectValues),
+  sum_elements(AgentValues, AgentValueSum),
+  sum_elements(ObjectValues, ObjectValueSum),
   Value is AgentValueSum + ObjectValueSum.
-% Helper predicates
-
-agent_dict_values(AgentDict, Values) :-
-  dict_pairs(AgentDict, _, AgentsPairs),
-  pairs_values(AgentsPairs, AgentsValues),
-  maplist(calculate_agent_value, AgentsValues, Values).
-
-object_dict_values(ObjectsDict, Values) :-
-  dict_pairs(ObjectsDict, _, ObjectPairs),
-  pairs_values(ObjectPairs, ObjectsValues),
-  maplist(calculate_object_value, ObjectsValues, Values).
-
-calculate_agent_value(Agent, Value) :-
-  Agent = agents{children:_, energy_point:_, subtype:Subtype, type:_, x:_, y:_},
-  (Subtype = wolf -> Value = 0; value(Subtype, Value)).
-
-calculate_object_value(Object, Value) :-
-    Object = object{subtype:Subtype, type:_, x:_, y:_},
-    value(Subtype, Value).
 
 
 % 4- find_food_coordinates(+State, +AgentId, -Coordinates)
@@ -143,9 +183,9 @@ find_food_coordinates(State, AgentId, Coordinates) :-
   get_dict(AgentId, AgentsDict, Agent),
   Agent = agents{children:_, energy_point:_, subtype:AgentType, type:_, x:_, y:_},
   dict_pairs(ObjectsDict, _, ObjectPairs),
-  pairs_values(ObjectPairs, ObjectsValues),
+  custom_pairs_values(ObjectPairs, ObjectsValues),
   dict_pairs(AgentsDict, _, AgentsPairs),
-  pairs_values(AgentsPairs, AgentsValues),
+  custom_pairs_values(AgentsPairs, AgentsValues),
   findall([X, Y], (member(Object, ObjectsValues), Object = object{subtype:Subtype, type:_, x:X, y:Y}, can_eat(AgentType, Subtype)), ObjectCoordinates),
   findall([X, Y], (member(AgentToEat, AgentsValues), AgentToEat = agents{children:_, energy_point:_, subtype:EatenType, type:_, x:X, y:Y}, can_eat(AgentType, EatenType)), AgentCoordinates),
   concat_lists(ObjectCoordinates, AgentCoordinates, Coordinates),
@@ -158,13 +198,13 @@ find_nearest_agent(State, AgentId, Coordinates, NearestAgent) :-
   State = [AgentsDict, _, _, _],
   get_dict(AgentId, AgentsDict, Agent),
   dict_pairs(AgentsDict, _, AgentsPairs),
-  pairs_values(AgentsPairs, AgentsValues),
+  custom_pairs_values(AgentsPairs, AgentsValues),
   findall([X, Y], (member(AgentToControl, AgentsValues), AgentToControl = agents{children:_, energy_point:_, subtype:_, type:_, x:X, y:Y}), AgentCoordinates),
   findall(Distance, (member([X, Y], AgentCoordinates), agents_distance(Agent, agents{children:_, energy_point:_, subtype:_, type:_, x:X, y:Y}, Distance)), Distances),
-  second_min_list(Distances, MinDistance),
-  nth0(Index, Distances, MinDistance),
-  nth0(Index, AgentCoordinates, Coordinates),
-  nth0(Index, AgentsValues, NearestAgent).
+  second_least_element(Distances, MinDistance),
+  index_of_element(Distances, Index, MinDistance),
+  element_at_index( AgentCoordinates, Index, Coordinates),
+  element_at_index( AgentsValues, Index, NearestAgent).
 
 % 6- find_nearest_food(+State, +AgentId, -Coordinates, -FoodType, -Distance)
 % state(Agents, Objects, Time, TurnOrder), State=[Agents, Objects, Time, TurnOrder],find_nearest_food(State, 1, Coordinates, FoodType, Distance).
@@ -173,19 +213,20 @@ find_nearest_food(State, AgentId, Coordinates, FoodType, Distance) :-
   get_dict(AgentId, AgentsDict, Agent),
   Agent = agents{children:_, energy_point:_, subtype:AgentType, type:_, x:_, y:_},
   dict_pairs(ObjectsDict, _, ObjectPairs),
-  pairs_values(ObjectPairs, ObjectsValues),
+  custom_pairs_values(ObjectPairs, ObjectsValues),
   dict_pairs(AgentsDict, _, AgentPairs),
-  pairs_values(AgentPairs, AgentsValues),
+  custom_pairs_values(AgentPairs, AgentsValues),
   findall([X, Y, Subtype], (member(Object, ObjectsValues), Object = object{subtype:Subtype, type:_, x:X, y:Y}, can_eat(AgentType, Subtype)), ObjectEatableCoordinates),
   findall([X, Y, Subtype], (member(AgentToEat, AgentsValues), AgentToEat = agents{subtype:Subtype, energy_point:_, children:_, type:_, x:X, y:Y}, can_eat(AgentType, Subtype)), AgentEatableCoordinates),
   concat_lists(ObjectEatableCoordinates, AgentEatableCoordinates, AllCoordinates),
   AllCoordinates \= [],
   % Even though in the list there are coordinates for object, since we calculate distance it doesnt really matter
-  findall(Distance, (member([X, Y, _], AllCoordinates), agents_distance(Agent, agents{subtype:_, type:_, energy_point:_, children:_,
-     x:X, y:Y}, Distance)), Distances),
-  min_list(Distances, MinDistance),
-  nth0(Index, Distances, MinDistance),
-  nth0(Index, AllCoordinates, [FoundX, FoundY, FoodType]),
+  findall(Dist, (member([X, Y, _], AllCoordinates), agents_distance(Agent, agents{subtype:_, type:_, energy_point:_, children:_,
+     x:X, y:Y}, Dist)), Distances),
+  least_element(Distances, MinDistance),
+  index_of_element(Distances, Index, MinDistance),
+  element_at_index(AllCoordinates, Index, [FoundX, FoundY, FoodType]),
+  Distance is MinDistance,
   Coordinates = [FoundX, FoundY].
 
 % 7- move_to_coordinate(+State, +AgentId, +X, +Y, -ActionList, +DepthLimit)
@@ -229,7 +270,7 @@ move_to_coordinate_helper(State, AgentId, [[X, Y, Actions] | RestQueue], TargetX
   % Explore neighboring nodes
   findall([NewX, NewY, [Move | Actions]],
           (
-            list_length(Actions, ActionsLength),
+            len_of_list(Actions, ActionsLength),
             DepthLimit > ActionsLength,
             can_make_move(State, X, Y, AgentId, Move, NewX, NewY),
             \+ member([NewX, NewY, _], RestQueue)
@@ -237,7 +278,7 @@ move_to_coordinate_helper(State, AgentId, [[X, Y, Actions] | RestQueue], TargetX
           PossibleMoves),
 
   % Append possible next nodes to the queue
-  append(RestQueue, PossibleMoves, NewQueue),
+  concat_lists(RestQueue, PossibleMoves, NewQueue),
 
   % Continue BFS with the updated queue
   move_to_coordinate_helper(State, AgentId, NewQueue, TargetX, TargetY, DepthLimit, FinalActionList)).
@@ -366,45 +407,43 @@ merge_temp_dicts_with_state(State, TempAgentsDict, TempObjectsDict, NewState) :-
   State = [AgentsDict, ObjectsDict, Time, TurnOrder],
   dict_pairs(TempAgentsDict, _, TempAgentsPairs),
   dict_pairs(AgentsDict, _, AgentsPairs),
-  append(TempAgentsPairs, AgentsPairs, NewAgentsPairs),
+  concat_lists(TempAgentsPairs, AgentsPairs, NewAgentsPairs),
   dict_pairs(NewAgentsDict, _, NewAgentsPairs),
   dict_pairs(TempObjectsDict, _, TempObjectsPairs),
   dict_pairs(ObjectsDict, _, ObjectsPairs),
-  append(TempObjectsPairs, ObjectsPairs, NewObjectsPairs),
+  concat_lists(TempObjectsPairs, ObjectsPairs, NewObjectsPairs),
   dict_pairs(NewObjectsDict, _, NewObjectsPairs),
   NewState = [NewAgentsDict, NewObjectsDict, Time, TurnOrder].
 
 
-consume_all_helper(State, AgentId, NumberOfMoves, CurNumberOfMoves, Value, NumberOfChildren, DepthLimit, TempAgentsDict, TempObjectsDict, FinalState) :-
+consume_all_helper(State, AgentId, NumberOfMoves, CurNumberOfMoves, Value, NumberOfChildren, DepthLimit, TempAgentsDict, TempObjectsDict) :-
   (find_nearest_food(State, AgentId, Coordinates, _, _) -> 
     ( Coordinates = [X, Y],
       move_to_coordinate(State, AgentId, X, Y, ActionList, DepthLimit) -> 
       (
-        print(ActionList),
-        list_length(ActionList, ActionListLength),
+        len_of_list(ActionList, ActionListLength),
         NewCurNumberOfMoves is CurNumberOfMoves + ActionListLength,
         consume_food_at_location(State, AgentId, X, Y, StateAfterConsume),
         change_location_of_agent(StateAfterConsume, AgentId, X, Y, StateAfterMove),
         increase_children(StateAfterMove, AgentId, StateAfterReproduction),
         merge_temp_dicts_with_state(StateAfterReproduction, TempAgentsDict, TempObjectsDict, StateAfterMerge),
-        consume_all_helper(StateAfterMerge, AgentId, NumberOfMoves, NewCurNumberOfMoves, Value, NumberOfChildren, DepthLimit, _{}, _{}, FinalState)
+        consume_all_helper(StateAfterMerge, AgentId, NumberOfMoves, NewCurNumberOfMoves, Value, NumberOfChildren, DepthLimit, _{}, _{})
       );
       (
         Coordinates = [X, Y],
         add_agent_or_object(State, X, Y, TempAgentsDict, TempObjectsDict, NewTempAgentsDict, NewTempObjectsDict),
         remove_agent_or_object(State, X, Y, StateAfterRemove),
-        consume_all_helper(StateAfterRemove, AgentId, NumberOfMoves, CurNumberOfMoves, Value, NumberOfChildren, DepthLimit, NewTempAgentsDict, NewTempObjectsDict, FinalState)
+        consume_all_helper(StateAfterRemove, AgentId, NumberOfMoves, CurNumberOfMoves, Value, NumberOfChildren, DepthLimit, NewTempAgentsDict, NewTempObjectsDict)
       ) 
     );
     (
       merge_temp_dicts_with_state(State, TempAgentsDict, TempObjectsDict, StateAfterMerge),
       % Calculate the value of the farm
-      FinalState = StateAfterMerge,
       value_of_farm(StateAfterMerge, Value),
       number_of_children(AgentId, StateAfterMerge, NumberOfChildren),
       NumberOfMoves is CurNumberOfMoves
     )
   ).
 % state(Agents, Objects, Time, TurnOrder), State=[Agents, Objects, Time, TurnOrder], consume_all(State, 0, NumberOfMovements, Value, NumberOfChildren, 1).
-consume_all(State, AgentId, NumberOfMoves, Value, NumberOfChildren, DepthLimit, FinalState) :-
-  consume_all_helper(State, AgentId, NumberOfMoves, 0, Value, NumberOfChildren, DepthLimit, _{}, _{}, FinalState).
+consume_all(State, AgentId, NumberOfMoves, Value, NumberOfChildren, DepthLimit) :-
+  consume_all_helper(State, AgentId, NumberOfMoves, 0, Value, NumberOfChildren, DepthLimit, _{}, _{}).
